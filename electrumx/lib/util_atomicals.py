@@ -29,7 +29,7 @@
 
 from array import array
 from electrumx.lib.script import OpCodes, ScriptError, Script, is_unspendable_legacy, is_unspendable_genesis, SCRIPTHASH_LEN
-from electrumx.lib.util import pack_le_uint64, unpack_le_uint16_from, unpack_le_uint64, unpack_le_uint32, unpack_le_uint32_from, pack_le_uint16, pack_le_uint32
+from electrumx.lib.util import pack_le_uint64, unpack_le_uint16_from, unpack_le_uint64, unpack_le_uint32, unpack_le_uint32_from, pack_le_uint16, pack_le_uint32, unpack_le_uint64_from
 from electrumx.lib.hash import hash_to_hex_str, hex_str_to_hash, double_sha256, HASHX_LEN
 import re
 import os
@@ -436,7 +436,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         output_idx_le = pack_le_uint32(expected_output_index) 
         atomical_id = commit_txid + pack_le_uint32(commit_index)
         location = reveal_location_txid + pack_le_uint32(reveal_location_index)
-        value_sats = pack_le_uint64(txout.value)
+        # sat_value = pack_le_uint64(txout.value)
         # Create the general mint information
         encoder = krock32.Encoder(checksum=False)
         commit_txid_reversed = bytearray(commit_txid)
@@ -1069,7 +1069,8 @@ def parse_operation_from_script(script, n):
             atom_op_decoded = 'x'  # extract - move atomical to 0'th output
         elif atom_op == "0179":
             atom_op_decoded = 'y'  # split - 
-
+        elif atom_op == "017a":
+            atom_op_decoded = 'z'
         if atom_op_decoded:
             return atom_op_decoded, parse_atomicals_data_definition_operation(script, n + one_letter_op_len)
     
@@ -1548,6 +1549,9 @@ def is_splat_operation(operations_found_at_inputs):
 def is_split_operation(operations_found_at_inputs):
     return operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0
 
+def is_custom_colored_operation(operations_found_at_inputs):
+    return operations_found_at_inputs and operations_found_at_inputs.get('op') == 'z' and operations_found_at_inputs.get('input_index') == 0
+
 def is_seal_operation(operations_found_at_inputs):
     return operations_found_at_inputs and operations_found_at_inputs.get('op') == 'sl' and operations_found_at_inputs.get('input_index') == 0
 
@@ -1805,11 +1809,11 @@ def is_mint_pow_valid(txid, mint_pow_commit):
     return False
 
 def expand_spend_utxo_data(data):
-    value, = unpack_le_uint64(data[HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8])
-    exponent, = unpack_le_uint16_from(data[HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 2]) 
+    sat_value, = unpack_le_uint64(data[HASHX_LEN + SCRIPTHASH_LEN: HASHX_LEN + SCRIPTHASH_LEN + 8])
+    atomical_value, = unpack_le_uint64_from(data[HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 8])
     return {
-        'value': value,
-        'exponent': exponent
+        'sat_value': sat_value,
+        'atomical_value': atomical_value
     }
 
 def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload, dmint):
